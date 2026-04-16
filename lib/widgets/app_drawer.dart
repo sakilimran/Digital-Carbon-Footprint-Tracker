@@ -73,6 +73,16 @@ class AppDrawer extends StatelessWidget {
             },
           ),
 
+          // Export Data
+          ListTile(
+            leading: const Icon(Icons.folder_open),
+            title: const Text('Export Data'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/dataManagement');
+            },
+          ),
+
           // About
           ListTile(
             leading: const Icon(Icons.info),

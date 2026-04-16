@@ -11,32 +11,40 @@ class AboutPage extends StatelessWidget {
         title: const Text('About'),
       ),
       drawer: const AppDrawer(),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
+          children: const [
+            Text(
               'About This App',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'The Digital Carbon Footprint Tracker is an educational and research-focused '
-              'mobile app designed to help users understand the environmental impact of their '
-              'social media usage. By monitoring app usage, this app calculates carbon emissions '
-              'based on real-time data and promotes awareness about digital sustainability.',
-              style: TextStyle(fontSize: 16),
+            SizedBox(height: 12),
+            Text(
+              'The Digital Carbon Footprint Tracker is an educational and '
+              'research-focused mobile app designed to help users understand '
+              'the environmental impact of their social media usage. By '
+              'monitoring app usage, this app calculates carbon emissions '
+              'based on real-time data and promotes awareness about digital '
+              'sustainability.',
+              style: TextStyle(fontSize: 16, height: 1.5),
             ),
-
-            const SizedBox(height: 16),
-            const Text(
-              'This is part of a course project of the program - Nordic Master on Sustainable '
-              'ICT Solutions of Tomorrow under Software Engineering department at Lut University, Finland.',
-              style: TextStyle(fontSize: 16),
+            SizedBox(height: 12),
+            Text(
+              'The app includes AI-powered Smart Tips that analyse your usage '
+              'patterns and suggest personalised ways to reduce your digital '
+              'carbon footprint over time. Usage history can be exported as a '
+              'CSV file via the Data Management screen.',
+              style: TextStyle(fontSize: 16, height: 1.5),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'This application is developed as part of a master\'s thesis '
+              'research at LUT University, Finland, investigating AI-enhanced '
+              'digital carbon footprint awareness under the Software Engineering '
+              'and Digital Transformation programme.',
+              style: TextStyle(fontSize: 16, height: 1.5),
             ),
           ],
         ),

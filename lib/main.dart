@@ -5,6 +5,7 @@ import 'pages/home_page.dart';
 import 'pages/stats_page.dart';
 import 'pages/total_impact_page.dart';
 import 'pages/recommendations_page.dart';
+import 'pages/data_management_page.dart';
 import 'pages/about_page.dart';
 import 'screens/permission_check_screen.dart';
 
@@ -39,6 +40,7 @@ class SocialMediaCarbonFootprintApp extends StatelessWidget {
         '/stats': (context) => const StatsPage(),
         '/totalImpact': (context) => const TotalImpactPage(),
         '/recommendations': (context) => const RecommendationsPage(),
+        '/dataManagement': (context) => const DataManagementPage(),
         '/about': (context) => const AboutPage(),
       },
     );
