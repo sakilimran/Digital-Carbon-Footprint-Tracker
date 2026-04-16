@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
 import '../services/recommendation_engine.dart';
+import '../widgets/error_display.dart';
 import '../widgets/app_drawer.dart';
 
 class RecommendationsPage extends StatefulWidget {
@@ -17,6 +18,7 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
   List<Recommendation> _recommendations = [];
   bool _isLoading = true;
   bool _hasEnoughData = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -25,7 +27,10 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
   }
 
   Future<void> _loadRecommendations() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
     try {
       final storedDays = await DatabaseService().countStoredDays();
       if (storedDays < 3) {
@@ -43,6 +48,7 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
       });
     } catch (e) {
       debugPrint('RecommendationsPage error: $e');
+      setState(() => _hasError = true);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -69,6 +75,13 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
   }
 
   Widget _buildBody() {
+    if (_hasError) {
+      return ErrorDisplay(
+        message: 'Unable to generate recommendations. Please try again.',
+        onRetry: _loadRecommendations,
+      );
+    }
+
     if (!_hasEnoughData) {
       return _buildInsufficientDataState();
     }
