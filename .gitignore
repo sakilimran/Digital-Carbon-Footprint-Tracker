@@ -10,6 +10,7 @@
 .history
 .svn/
 migrate_working_dir/
+APP_SUMMARY.md
 
 # IntelliJ related
 *.iml
@@ -41,3 +42,4 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/carbon_footprint
