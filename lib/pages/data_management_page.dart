@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/app_constants.dart';
 import '../services/database_service.dart';
 import '../services/export_service.dart';
 import '../widgets/app_drawer.dart';
@@ -235,7 +236,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFB3D48E),
+          backgroundColor: kPrimaryGreen,
           foregroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           alignment: Alignment.centerLeft,

@@ -54,7 +54,7 @@ class _TotalImpactPageState extends State<TotalImpactPage>
       _fetchDaily(),
       _fetchMonthly(),
       _fetchYearly(),
-    ]);
+    ]).ignore();
   }
 
   @override

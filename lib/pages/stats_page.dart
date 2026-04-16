@@ -49,7 +49,7 @@ class _StatsPageState extends State<StatsPage>
       _fetchWeekly(),
       _fetchMonthly(),
       _fetchYearly(),
-    ]);
+    ]).ignore();
   }
 
   @override

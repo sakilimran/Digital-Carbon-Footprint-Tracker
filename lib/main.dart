@@ -1,6 +1,5 @@
-// lib/main.dart
-
 import 'package:flutter/material.dart';
+import 'services/app_constants.dart';
 import 'pages/home_page.dart';
 import 'pages/stats_page.dart';
 import 'pages/total_impact_page.dart';
@@ -19,23 +18,23 @@ class SocialMediaCarbonFootprintApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Social Media Carbon Footprint',
+      title: 'Digital Carbon Footprint',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: 'Titillium',
-        scaffoldBackgroundColor: const Color(0xFFB3D48E),
+        scaffoldBackgroundColor: kPrimaryGreen,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: kPrimaryGreen,
+          foregroundColor: Colors.black,
+          elevation: 0,
+        ),
         textTheme: const TextTheme(
-          headlineMedium: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          headlineMedium: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      // We start by checking usage permission
       initialRoute: '/',
       routes: {
-        // Step 1: Permission check
         '/': (context) => const PermissionCheckScreen(),
-
-        // Step 2: If granted, go to real home
         '/home': (context) => const HomePage(),
         '/stats': (context) => const StatsPage(),
         '/totalImpact': (context) => const TotalImpactPage(),

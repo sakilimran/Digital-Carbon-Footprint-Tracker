@@ -1,5 +1,22 @@
 import 'package:flutter/material.dart';
 
+// ---------------------------------------------------------------------------
+// Platform channel
+// ---------------------------------------------------------------------------
+
+/// Shared MethodChannel name used by UsageService and PermissionCheckScreen.
+const String kChannelName = 'social_media_carbon_footprint/usage';
+
+// ---------------------------------------------------------------------------
+// Design system colours
+// ---------------------------------------------------------------------------
+
+/// App-wide primary green — scaffold background, drawer header, buttons.
+const Color kPrimaryGreen = Color(0xFFB3D48E);
+
+/// Card / circle background — pale yellow-green used in CarbonCircle and cards.
+const Color kCardBackground = Color(0xFFF1FBDA);
+
 // Source: Greenspector 2021 Social Media study
 // https://greenspector.com/en/social-media-2021/
 

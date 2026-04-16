@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/app_constants.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({Key? key}) : super(key: key);
@@ -9,93 +10,44 @@ class AppDrawer extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          // Use a SizedBox to force a custom height.
           SizedBox(
             height: 100,
             child: DrawerHeader(
               margin: EdgeInsets.zero,
-              // Only left padding to match ListTile indentation (16 px).
               padding: const EdgeInsets.only(left: 16),
-              decoration: const BoxDecoration(
-                // Match page background color #B3D48E
-                color: Color(0xFFB3D48E),
-              ),
-              // Center vertically, left-align horizontally
+              decoration: const BoxDecoration(color: kPrimaryGreen),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Menu',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Colors.black,
-                      ),
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(color: Colors.black),
                 ),
               ),
             ),
           ),
-
-          // Home
-          ListTile(
-            leading: const Icon(Icons.home),
-            title: const Text('Home'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/');
-            },
-          ),
-
-          // Stats
-          ListTile(
-            leading: const Icon(Icons.show_chart),
-            title: const Text('Usage Statistics'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/stats');
-            },
-          ),
-
-          // Total Impact
-          ListTile(
-            leading: const Icon(Icons.assessment),
-            title: const Text('Total Impact'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/totalImpact');
-            },
-          ),
-
-          // Smart Tips (AI Recommendations)
-          ListTile(
-            leading: const Icon(Icons.lightbulb_outline),
-            title: const Text('Smart Tips'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/recommendations');
-            },
-          ),
-
-          // Export Data
-          ListTile(
-            leading: const Icon(Icons.folder_open),
-            title: const Text('Export Data'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/dataManagement');
-            },
-          ),
-
-          // About
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: const Text('About'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/about');
-            },
-          ),
-
-          // Additional items can go here...
+          _item(context, Icons.home, 'Home', '/'),
+          _item(context, Icons.show_chart, 'Usage Statistics', '/stats'),
+          _item(context, Icons.assessment, 'Total Impact', '/totalImpact'),
+          _item(context, Icons.lightbulb_outline, 'Smart Tips', '/recommendations'),
+          _item(context, Icons.folder_open, 'Export Data', '/dataManagement'),
+          _item(context, Icons.info, 'About', '/about'),
         ],
       ),
+    );
+  }
+
+  Widget _item(
+      BuildContext context, IconData icon, String label, String route) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.pushReplacementNamed(context, route);
+      },
     );
   }
 }

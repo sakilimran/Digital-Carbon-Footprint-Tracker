@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../services/usage_service.dart';
 
 class PermissionCheckScreen extends StatefulWidget {
   const PermissionCheckScreen({Key? key}) : super(key: key);
@@ -10,17 +10,15 @@ class PermissionCheckScreen extends StatefulWidget {
 
 class _PermissionCheckScreenState extends State<PermissionCheckScreen>
     with WidgetsBindingObserver {
-  static const MethodChannel _channel =
-      MethodChannel('social_media_carbon_footprint/usage');
+  final UsageService _usageService = UsageService();
 
-  bool _hasUsagePermission = false;
   bool _checkedOnce = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkPermissionAndPrompt();
+    _checkPermissionAndNavigate();
   }
 
   @override
@@ -29,90 +27,59 @@ class _PermissionCheckScreenState extends State<PermissionCheckScreen>
     super.dispose();
   }
 
-  /// Called whenever the app resumes from background
+  /// Re-checks permission when the user returns from the Settings screen.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-
     if (state == AppLifecycleState.resumed) {
-      // Re-check usage permission when returning from Settings
-      _checkPermissionAndPrompt();
+      _checkPermissionAndNavigate();
     }
   }
 
-  Future<void> _checkPermissionAndPrompt() async {
-    bool hasPerm = await _hasUsagePermissionNative();
+  Future<void> _checkPermissionAndNavigate() async {
+    final hasPerm = await _usageService.hasUsagePermission();
+    if (!mounted) return;
 
-    setState(() {
-      _hasUsagePermission = hasPerm;
-      _checkedOnce = true;
-    });
+    setState(() => _checkedOnce = true);
 
-    // If still missing permission, show the dialog every time
-    if (!hasPerm) {
+    if (hasPerm) {
+      // Navigate exactly once here — never inside build().
+      Navigator.pushReplacementNamed(context, '/home');
+    } else {
       _showUsageAccessDialog();
-    }
-  }
-
-  Future<bool> _hasUsagePermissionNative() async {
-    try {
-      final bool result = await _channel.invokeMethod('hasUsagePermission');
-      return result;
-    } catch (e) {
-      debugPrint("Error checking usage permission: $e");
-      return false;
     }
   }
 
   void _showUsageAccessDialog() {
     showDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Usage Access Required'),
-          content: const Text(
-            'This app needs Usage Access to track your social media usage '
-            'and calculate your digital carbon footprint. Please grant '
-            'Usage Access in the next screen.'
+      builder: (ctx) => AlertDialog(
+        title: const Text('Usage Access Required'),
+        content: const Text(
+          'This app needs Usage Access to track your social media usage '
+          'and calculate your digital carbon footprint. '
+          'Please grant Usage Access on the next screen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _usageService.openUsageSettings();
+            },
+            child: const Text('OK'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _openUsageSettings();
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
-  }
-
-  Future<void> _openUsageSettings() async {
-    try {
-      await _channel.invokeMethod('openUsageSettings');
-    } catch (e) {
-      debugPrint("Error opening usage settings: $e");
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // If we have permission and have checked at least once, go to /home
-    if (_checkedOnce && _hasUsagePermission) {
-      Future.microtask(() {
-        Navigator.pushReplacementNamed(context, '/home');
-      });
-    }
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Checking Permissions...'),
+        title: Text(_checkedOnce ? 'Permission Required' : 'Checking Permissions…'),
       ),
-      body: const Center(
-        child: CircularProgressIndicator(),
-      ),
+      body: const Center(child: CircularProgressIndicator()),
     );
   }
 }

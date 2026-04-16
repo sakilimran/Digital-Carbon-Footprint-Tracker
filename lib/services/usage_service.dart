@@ -4,13 +4,40 @@ import 'package:flutter/foundation.dart';
 import 'app_constants.dart';
 
 class UsageService {
-  static const _channel = MethodChannel('social_media_carbon_footprint/usage');
+  static const _channel = MethodChannel(kChannelName);
+
+  // -------------------------------------------------------------------------
+  // Permission helpers
+  // -------------------------------------------------------------------------
+
+  /// Returns true if Android Usage Access permission has been granted.
+  Future<bool> hasUsagePermission() async {
+    try {
+      return await _channel.invokeMethod('hasUsagePermission') as bool;
+    } catch (e) {
+      debugPrint('UsageService.hasUsagePermission error: $e');
+      return false;
+    }
+  }
+
+  /// Opens the Android Usage Access settings screen.
+  Future<void> openUsageSettings() async {
+    try {
+      await _channel.invokeMethod('openUsageSettings');
+    } catch (e) {
+      debugPrint('UsageService.openUsageSettings error: $e');
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Usage data
+  // -------------------------------------------------------------------------
 
   /// Fetches today's app usage from the native Android layer.
   /// Returns a list of maps: {package, minutes, co2, energy}.
   /// CO₂ and energy values come pre-calculated from MainActivity; the
-  /// null-coalescing fallback here handles any edge case where the native
-  /// side omits them.
+  /// null-coalescing fallback handles any edge case where the native side
+  /// omits them.
   Future<List<Map<String, dynamic>>> getTodayUsage() async {
     try {
       final String result = await _channel.invokeMethod('getDailyUsage');

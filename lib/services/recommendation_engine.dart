@@ -177,7 +177,7 @@ class RecommendationEngine {
           body: 'Your digital carbon footprint increased by '
               '${changePct.toStringAsFixed(0)}% compared to last week.$appDetail '
               'Consider setting a daily screen-time goal to reverse this.',
-          type: 'trend',
+          type: 'trend_increase',
           priority: 2,
         );
       } else if (changePct < 0) {
@@ -186,7 +186,7 @@ class RecommendationEngine {
           body: 'Your carbon footprint dropped by '
               '${changePct.abs().toStringAsFixed(0)}% compared to last week. '
               'Keep it up — small changes add up over time!',
-          type: 'trend',
+          type: 'trend_decrease',
           priority: 2,
         );
       }

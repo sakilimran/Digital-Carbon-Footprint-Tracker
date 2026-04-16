@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/app_constants.dart';
 import '../services/database_service.dart';
 import '../services/recommendation_engine.dart';
 import '../widgets/error_display.dart';
@@ -12,8 +13,9 @@ class RecommendationsPage extends StatefulWidget {
 }
 
 class _RecommendationsPageState extends State<RecommendationsPage> {
-  final RecommendationEngine _engine =
-      RecommendationEngine(db: DatabaseService());
+  // One DatabaseService instance shared between engine and direct calls.
+  final DatabaseService _db = DatabaseService();
+  late final RecommendationEngine _engine = RecommendationEngine(db: _db);
 
   List<Recommendation> _recommendations = [];
   bool _isLoading = true;
@@ -32,12 +34,9 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
       _hasError = false;
     });
     try {
-      final storedDays = await DatabaseService().countStoredDays();
+      final storedDays = await _db.countStoredDays();
       if (storedDays < 3) {
-        setState(() {
-          _hasEnoughData = false;
-          _isLoading = false;
-        });
+        setState(() => _hasEnoughData = false);
         return;
       }
 
@@ -81,30 +80,20 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
         onRetry: _loadRecommendations,
       );
     }
-
-    if (!_hasEnoughData) {
-      return _buildInsufficientDataState();
-    }
-
-    if (_recommendations.isEmpty) {
-      return _buildEmptyState();
-    }
+    if (!_hasEnoughData) return _buildInsufficientDataState();
+    if (_recommendations.isEmpty) return _buildEmptyState();
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildHeader(),
+        const Text(
+          'Personalised tips based on your usage patterns. '
+          'Keep using the app daily to improve recommendation accuracy.',
+          style: TextStyle(fontSize: 14, color: Colors.black54),
+        ),
         const SizedBox(height: 16),
         ..._recommendations.map(_buildCard),
       ],
-    );
-  }
-
-  Widget _buildHeader() {
-    return const Text(
-      'Personalised tips based on your usage patterns. '
-      'Keep using the app daily to improve recommendation accuracy.',
-      style: TextStyle(fontSize: 14, color: Colors.black54),
     );
   }
 
@@ -112,7 +101,7 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1FBDA),
+        color: kCardBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.black12),
       ),
@@ -121,21 +110,19 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icon
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFFB3D48E),
+                color: kPrimaryGreen,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
-                _iconForType(rec.type, rec.title),
+                _iconForType(rec.type),
                 size: 24,
                 color: Colors.black87,
               ),
             ),
             const SizedBox(width: 14),
-            // Text content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,7 +145,7 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFB3D48E),
+                        color: kPrimaryGreen,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -235,15 +222,17 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
     );
   }
 
-  IconData _iconForType(String type, String title) {
+  /// Maps the recommendation type to an icon. Trend types are explicit
+  /// ('trend_increase' / 'trend_decrease') so the icon never depends on
+  /// the text content of the title.
+  IconData _iconForType(String type) {
     switch (type) {
       case 'substitution':
         return Icons.swap_horiz;
-      case 'trend':
-        return title.toLowerCase().contains('great') ||
-                title.toLowerCase().contains('dropped')
-            ? Icons.trending_down
-            : Icons.trending_up;
+      case 'trend_increase':
+        return Icons.trending_up;
+      case 'trend_decrease':
+        return Icons.trending_down;
       case 'budget':
         return Icons.timer_outlined;
       case 'equivalence':

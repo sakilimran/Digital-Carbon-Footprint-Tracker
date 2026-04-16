@@ -21,8 +21,12 @@ class ExportService {
   // CSV generation
   // ---------------------------------------------------------------------------
 
-  Future<String> _buildCsv() async {
+  /// Loads all records once and returns both the CSV string and the row count.
+  /// Throws if there is no data to export.
+  Future<({String csv, int count})> _buildCsvWithCount() async {
     final records = await db.getAllUsageData();
+    if (records.isEmpty) throw Exception('No data to export.');
+
     final buffer = StringBuffer();
     buffer.writeln('date,app_name,package_name,minutes,co2_grams,energy_mah');
     for (final r in records) {
@@ -33,17 +37,11 @@ class ExportService {
         '${r.energyMah.toStringAsFixed(2)}',
       );
     }
-    return buffer.toString();
+    return (csv: buffer.toString(), count: records.length);
   }
 
   String _fileName() =>
       'carbon_footprint_data_${dateString(DateTime.now())}.csv';
-
-  Future<int> _recordCount() async {
-    final records = await db.getAllUsageData();
-    if (records.isEmpty) throw Exception('No data to export.');
-    return records.length;
-  }
 
   // ---------------------------------------------------------------------------
   // Option 1: Share via Android share sheet
@@ -52,8 +50,7 @@ class ExportService {
   /// Writes the CSV to a temp file and opens the system share sheet.
   /// Returns the number of records exported.
   Future<int> exportAndShare() async {
-    final count = await _recordCount();
-    final csv = await _buildCsv();
+    final (:csv, :count) = await _buildCsvWithCount();
 
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/${_fileName()}');
@@ -75,8 +72,7 @@ class ExportService {
   /// accessible via file manager). Falls back to internal documents directory.
   /// Returns an [ExportResult] with the record count and the saved file path.
   Future<ExportResult> saveToDevice() async {
-    final count = await _recordCount();
-    final csv = await _buildCsv();
+    final (:csv, :count) = await _buildCsvWithCount();
 
     Directory? dir;
     try {
