@@ -63,7 +63,17 @@ class AppDrawer extends StatelessWidget {
             },
           ),
 
-          // Total Impact
+          // Smart Tips (AI Recommendations)
+          ListTile(
+            leading: const Icon(Icons.lightbulb_outline),
+            title: const Text('Smart Tips'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(context, '/recommendations');
+            },
+          ),
+
+          // About
           ListTile(
             leading: const Icon(Icons.info),
             title: const Text('About'),
