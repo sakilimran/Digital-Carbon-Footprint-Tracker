@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/usage_service.dart';
+import '../services/database_service.dart';
 import '../widgets/carbon_circle.dart';
 import '../widgets/app_drawer.dart';
 
@@ -12,6 +13,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final UsageService _usageService = UsageService();
+  final DatabaseService _db = DatabaseService();
 
   double _totalCO2 = 0.0; // in grams
   double _totalEnergy = 0.0; // in mAh
@@ -30,13 +32,20 @@ class _HomePageState extends State<HomePage> {
       double totalEnergy = 0.0;
 
       for (var usage in usageList) {
-        totalCO2 += (usage['co2'] as double); // calculate total CO2 emission
-        totalEnergy += (usage['energy'] as double); // calculate total energy consumption
+        totalCO2 += (usage['co2'] as double);
+        totalEnergy += (usage['energy'] as double);
+      }
+
+      // Persist today's data to SQLite so historical screens and the
+      // AI engine can read it without hitting the native layer again.
+      if (usageList.isNotEmpty) {
+        final today = _dateString(DateTime.now());
+        await _db.insertOrUpdateDailyUsage(today, usageList);
       }
 
       setState(() {
-        _totalCO2 = totalCO2; // in grams
-        _totalEnergy = totalEnergy; // in mAh
+        _totalCO2 = totalCO2;
+        _totalEnergy = totalEnergy;
       });
     } catch (e) {
       debugPrint('Error fetching usage: $e');
@@ -46,6 +55,12 @@ class _HomePageState extends State<HomePage> {
       });
     }
   }
+
+  String _dateString(DateTime dt) =>
+      '${dt.year.toString().padLeft(4, '0')}-'
+      '${dt.month.toString().padLeft(2, '0')}-'
+      '${dt.day.toString().padLeft(2, '0')}';
+
 
   @override
   Widget build(BuildContext context) {
