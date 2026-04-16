@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'app_constants.dart';
 import 'database_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -10,7 +11,7 @@ class Recommendation {
   final String body;
   final String type; // "substitution" | "trend" | "budget" | "equivalence"
   final double? potentialSaving; // estimated CO₂ saving in grams
-  final int priority; // 1 = highest
+  final int priority;            // 1 = highest
 
   const Recommendation({
     required this.title,
@@ -22,30 +23,12 @@ class Recommendation {
 }
 
 // ---------------------------------------------------------------------------
-// Internal constants — mirror of UsageService rates
+// Equivalence conversion factors (well-known constants, not app config)
 // ---------------------------------------------------------------------------
 
-const Map<String, double> _co2RatesPerMinute = {
-  'com.google.android.youtube': 0.46,
-  'tv.twitch.android.app': 0.55,
-  'com.twitter.android': 0.60,
-  'com.linkedin.android': 0.71,
-  'com.facebook.katana': 0.79,
-  'com.snapchat.android': 0.87,
-  'com.instagram.android': 1.05,
-  'com.pinterest': 1.30,
-  'com.reddit.frontpage': 2.48,
-  'com.zhiliaoapp.musically': 2.63,
-};
-
-// Lowest CO₂ rate in the tracked set (YouTube)
-const String _lowestCo2Package = 'com.google.android.youtube';
-const double _lowestCo2Rate = 0.46;
-
-// Real-world equivalence factors
-const double _co2PerKmDriving = 120.0;   // grams per km (average car)
-const double _co2PerPhoneCharge = 15.0;  // grams per full smartphone charge
-const double _co2PerLedHour = 5.0;       // grams per hour of LED light
+const double _co2PerKmDriving = 120.0;  // grams — average passenger car
+const double _co2PerPhoneCharge = 15.0; // grams — full smartphone charge
+const double _co2PerLedHour = 5.0;      // grams — 1 hour of LED bulb
 
 // ---------------------------------------------------------------------------
 // RecommendationEngine
@@ -56,7 +39,7 @@ class RecommendationEngine {
 
   const RecommendationEngine({required this.db});
 
-  /// Generates up to 3 personalised recommendations.
+  /// Generates up to 3 personalised recommendations sorted by priority.
   /// Returns an empty list when fewer than 3 days of data are stored.
   Future<List<Recommendation>> generateRecommendations() async {
     final storedDays = await db.countStoredDays();
@@ -64,8 +47,8 @@ class RecommendationEngine {
 
     final candidates = <Recommendation>[];
 
-    final substitution = await _substitutionRecommendation();
-    if (substitution != null) candidates.add(substitution);
+    final sub = await _substitutionRecommendation();
+    if (sub != null) candidates.add(sub);
 
     final trend = await _trendRecommendation();
     if (trend != null) candidates.add(trend);
@@ -76,13 +59,11 @@ class RecommendationEngine {
     final equiv = await _equivalenceRecommendation();
     if (equiv != null) candidates.add(equiv);
 
-    // Sort by priority (1 = highest) and take at most 3
     candidates.sort((a, b) => a.priority.compareTo(b.priority));
     final result = candidates.take(3).toList();
 
-    // Persist to recommendations_log
     if (result.isNotEmpty) {
-      final today = _dateStr(DateTime.now());
+      final today = dateString(DateTime.now());
       for (final rec in result) {
         await db.insertRecommendation(
           date: today,
@@ -98,6 +79,8 @@ class RecommendationEngine {
 
   // -------------------------------------------------------------------------
   // Strategy 1 — App Substitution
+  // Identifies the highest-CO₂ app over the last 7 days and estimates the
+  // saving if 25 % of that time were shifted to the lowest-emission app.
   // -------------------------------------------------------------------------
 
   Future<Recommendation?> _substitutionRecommendation() async {
@@ -105,47 +88,40 @@ class RecommendationEngine {
       final records = await db.getLastNDaysUsage(7);
       if (records.isEmpty) return null;
 
-      // Aggregate minutes and CO₂ by package over the last 7 days
       final Map<String, double> minutesByPkg = {};
       final Map<String, double> co2ByPkg = {};
       for (final r in records) {
-        minutesByPkg[r.packageName] =
-            (minutesByPkg[r.packageName] ?? 0) + r.minutes;
-        co2ByPkg[r.packageName] =
-            (co2ByPkg[r.packageName] ?? 0) + r.co2Grams;
+        minutesByPkg[r.packageName] = (minutesByPkg[r.packageName] ?? 0) + r.minutes;
+        co2ByPkg[r.packageName] = (co2ByPkg[r.packageName] ?? 0) + r.co2Grams;
       }
-
       if (co2ByPkg.isEmpty) return null;
 
-      // Find the highest-CO₂ app
       final highEntry =
           co2ByPkg.entries.reduce((a, b) => a.value > b.value ? a : b);
-      final highPackage = highEntry.key;
+      final highPkg = highEntry.key;
+      if (highPkg == kLowestCo2Package) return null;
 
-      // No point suggesting switching YouTube to YouTube
-      if (highPackage == _lowestCo2Package) return null;
+      final highMinutes = minutesByPkg[highPkg] ?? 0;
+      final highCo2Total = co2ByPkg[highPkg] ?? 0;
+      final highRate = kCo2PerMinute[highPkg] ?? 0;
+      final lowRate = kCo2PerMinute[kLowestCo2Package]!;
 
-      final highMinutes = minutesByPkg[highPackage] ?? 0;
-      final highCo2Total = co2ByPkg[highPackage] ?? 0;
-      final highRate = _co2RatesPerMinute[highPackage] ?? 0;
-
-      final savingsPerMin = highRate - _lowestCo2Rate;
+      final savingsPerMin = highRate - lowRate;
       final suggestedShift = highMinutes * 0.25;
       final potentialSaving = suggestedShift * savingsPerMin;
-
       if (potentialSaving <= 0) return null;
 
-      final highName = appNameFromPackage(highPackage);
-      final lowName = appNameFromPackage(_lowestCo2Package);
+      final highName = appNameFromPackage(highPkg);
+      final lowName = appNameFromPackage(kLowestCo2Package);
       final shiftMins = suggestedShift.round();
       final phoneCharges = (potentialSaving / _co2PerPhoneCharge).toStringAsFixed(1);
 
       return Recommendation(
         title: 'Swap some $highName time for $lowName',
-        body: 'You spent ${highMinutes.round()} minutes on $highName this week '
-            '(${highCo2Total.toStringAsFixed(1)}g CO₂). Shifting $shiftMins minutes '
+        body: 'You spent ${highMinutes.round()} min on $highName this week '
+            '(${highCo2Total.toStringAsFixed(1)}g CO₂). Shifting $shiftMins min '
             'to $lowName could save ${potentialSaving.toStringAsFixed(1)}g CO₂ — '
-            'equivalent to charging your phone $phoneCharges times.',
+            'like charging your phone $phoneCharges times.',
         type: 'substitution',
         potentialSaving: potentialSaving,
         priority: 1,
@@ -158,34 +134,30 @@ class RecommendationEngine {
 
   // -------------------------------------------------------------------------
   // Strategy 2 — Trend Detection
+  // Compares this week's total CO₂ to last week's. Alerts on >15 % increase;
+  // encourages on any decrease.
   // -------------------------------------------------------------------------
 
   Future<Recommendation?> _trendRecommendation() async {
     try {
       final now = DateTime.now();
-
       final thisWeek = await db.getLastNDaysUsage(7);
-      final lastWeekStart = now.subtract(const Duration(days: 14));
-      final lastWeekEnd = now.subtract(const Duration(days: 7));
       final lastWeek = await db.getUsageRange(
-        _dateStr(lastWeekStart),
-        _dateStr(lastWeekEnd),
+        dateString(now.subtract(const Duration(days: 14))),
+        dateString(now.subtract(const Duration(days: 7))),
       );
 
       if (thisWeek.isEmpty || lastWeek.isEmpty) return null;
 
       final thisWeekCo2 = thisWeek.fold(0.0, (s, r) => s + r.co2Grams);
       final lastWeekCo2 = lastWeek.fold(0.0, (s, r) => s + r.co2Grams);
-
       if (lastWeekCo2 == 0) return null;
 
       final changePct = ((thisWeekCo2 - lastWeekCo2) / lastWeekCo2) * 100;
 
       if (changePct > 15) {
-        // Find the app whose usage grew the most
         final thisWeekMins = _aggregateMinutes(thisWeek);
         final lastWeekMins = _aggregateMinutes(lastWeek);
-
         String? biggestApp;
         double biggestDelta = 0;
         for (final pkg in thisWeekMins.keys) {
@@ -195,17 +167,16 @@ class RecommendationEngine {
             biggestApp = pkg;
           }
         }
-
         final appDetail = biggestApp != null && biggestDelta > 0
             ? ' Your ${appNameFromPackage(biggestApp)} usage grew the most '
-                '(+${biggestDelta.round()} minutes).'
+                '(+${biggestDelta.round()} min).'
             : '';
 
         return Recommendation(
           title: 'Your footprint is trending up',
           body: 'Your digital carbon footprint increased by '
               '${changePct.toStringAsFixed(0)}% compared to last week.$appDetail '
-              'Consider setting a daily screen time goal to turn this around.',
+              'Consider setting a daily screen-time goal to reverse this.',
           type: 'trend',
           priority: 2,
         );
@@ -220,7 +191,7 @@ class RecommendationEngine {
         );
       }
 
-      return null; // Change within ±15% — no alert needed
+      return null; // Within ±15 % — no alert needed
     } catch (e) {
       debugPrint('RecommendationEngine trend error: $e');
       return null;
@@ -229,12 +200,13 @@ class RecommendationEngine {
 
   // -------------------------------------------------------------------------
   // Strategy 3 — Daily Budget Nudge
+  // Alerts when today's CO₂ already exceeds the historical daily average by
+  // more than 20 %, provided it is before 8 PM.
   // -------------------------------------------------------------------------
 
   Future<Recommendation?> _budgetNudge() async {
     try {
-      final currentHour = DateTime.now().hour;
-      if (currentHour >= 20) return null; // Too late in the day to nudge
+      if (DateTime.now().hour >= 20) return null;
 
       final allRecords = await db.getAllUsageData();
       if (allRecords.isEmpty) return null;
@@ -242,23 +214,22 @@ class RecommendationEngine {
       final distinctDates = allRecords.map((r) => r.date).toSet();
       final totalCo2 = allRecords.fold(0.0, (s, r) => s + r.co2Grams);
       final avgDailyCo2 = totalCo2 / distinctDates.length;
-
       if (avgDailyCo2 == 0) return null;
 
-      final today = _dateStr(DateTime.now());
+      final today = dateString(DateTime.now());
       final todayRecords = await db.getDailyUsage(today);
       final todayCo2 = todayRecords.fold(0.0, (s, r) => s + r.co2Grams);
 
       if (todayCo2 <= avgDailyCo2 * 1.2) return null;
 
       final pct = ((todayCo2 / avgDailyCo2) * 100).round();
+      final hour = DateTime.now().hour;
 
       return Recommendation(
         title: 'Above your daily average',
         body: "You've already reached $pct% of your typical daily carbon budget "
-            'and it\'s only ${_formatHour(currentHour)}. '
-            'Consider reducing screen time for the rest of the day — '
-            'your future self will thank you!',
+            'and it\'s only ${_formatHour(hour)}. Consider reducing screen time '
+            'for the rest of the day — your future self will thank you!',
         type: 'budget',
         priority: 3,
       );
@@ -270,6 +241,7 @@ class RecommendationEngine {
 
   // -------------------------------------------------------------------------
   // Strategy 4 — Equivalence Comparisons
+  // Converts last 7 days' total CO₂ into tangible real-world equivalents.
   // -------------------------------------------------------------------------
 
   Future<Recommendation?> _equivalenceRecommendation() async {
@@ -287,9 +259,8 @@ class RecommendationEngine {
       return Recommendation(
         title: 'Your week in perspective',
         body: 'Your weekly social media footprint (${totalCo2.toStringAsFixed(1)}g CO₂) '
-            'is equivalent to driving ${kmDriving}km by car, '
-            'charging your phone $phoneCharges times, '
-            'or running an LED light for $ledHours hours.',
+            'equals driving $kmDriving km by car, charging your phone $phoneCharges times, '
+            'or running an LED bulb for $ledHours hours.',
         type: 'equivalence',
         priority: 4,
       );
@@ -310,11 +281,6 @@ class RecommendationEngine {
     }
     return result;
   }
-
-  String _dateStr(DateTime dt) =>
-      '${dt.year.toString().padLeft(4, '0')}-'
-      '${dt.month.toString().padLeft(2, '0')}-'
-      '${dt.day.toString().padLeft(2, '0')}';
 
   String _formatHour(int hour) {
     final suffix = hour < 12 ? 'AM' : 'PM';

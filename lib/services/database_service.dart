@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'package:flutter/foundation.dart';
+import 'app_constants.dart';
 
 // ---------------------------------------------------------------------------
 // Models
@@ -8,13 +8,13 @@ import 'package:flutter/foundation.dart';
 
 class AppUsage {
   final int? id;
-  final String date;           // YYYY-MM-DD
+  final String date;        // YYYY-MM-DD
   final String packageName;
   final String appName;
   final double minutes;
   final double co2Grams;
   final double energyMah;
-  final String recordedAt;     // ISO 8601 timestamp
+  final String recordedAt;  // ISO 8601 timestamp
 
   const AppUsage({
     this.id,
@@ -49,7 +49,7 @@ class AppUsage {
     recordedAt: map['recorded_at'] as String,
   );
 
-  /// Convert to the Map format expected by existing UI widgets.
+  /// Converts to the map format expected by existing UI widgets.
   Map<String, dynamic> toUsageMap() => {
     'package': packageName,
     'minutes': minutes,
@@ -102,26 +102,6 @@ class StoredRecommendation {
 }
 
 // ---------------------------------------------------------------------------
-// Package name → friendly app name mapping
-// ---------------------------------------------------------------------------
-
-const Map<String, String> _packageToName = {
-  'com.google.android.youtube': 'YouTube',
-  'tv.twitch.android.app': 'Twitch',
-  'com.twitter.android': 'Twitter',
-  'com.linkedin.android': 'LinkedIn',
-  'com.facebook.katana': 'Facebook',
-  'com.snapchat.android': 'Snapchat',
-  'com.instagram.android': 'Instagram',
-  'com.pinterest': 'Pinterest',
-  'com.reddit.frontpage': 'Reddit',
-  'com.zhiliaoapp.musically': 'TikTok',
-};
-
-String appNameFromPackage(String packageName) =>
-    _packageToName[packageName] ?? packageName;
-
-// ---------------------------------------------------------------------------
 // DatabaseService
 // ---------------------------------------------------------------------------
 
@@ -144,12 +124,7 @@ class DatabaseService {
   Future<Database> _initDatabase() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'carbon_footprint.db');
-
-    return openDatabase(
-      path,
-      version: 1,
-      onCreate: _onCreate,
-    );
+    return openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -181,10 +156,10 @@ class DatabaseService {
   }
 
   // -------------------------------------------------------------------------
-  // daily_usage methods
+  // daily_usage
   // -------------------------------------------------------------------------
 
-  /// Upsert a full day's usage list. Existing entries for the same
+  /// Upserts a full day's usage list. Existing entries for the same
   /// (date, package_name) are replaced with fresh values.
   Future<void> insertOrUpdateDailyUsage(
       String date, List<Map<String, dynamic>> usageList) async {
@@ -210,7 +185,6 @@ class DatabaseService {
       );
     }
     await batch.commit(noResult: true);
-    debugPrint('DatabaseService: saved ${usageList.length} records for $date');
   }
 
   /// Returns all usage records for a single date (YYYY-MM-DD).
@@ -224,8 +198,8 @@ class DatabaseService {
     return rows.map(AppUsage.fromMap).toList();
   }
 
-  /// Returns all usage records between startDate and endDate (inclusive),
-  /// ordered by date. Each row is one app on one day (not aggregated).
+  /// Returns all usage records between [startDate] and [endDate] inclusive,
+  /// ordered by date. Each row is one app on one day (not pre-aggregated).
   Future<List<AppUsage>> getUsageRange(
       String startDate, String endDate) async {
     final db = await database;
@@ -238,63 +212,55 @@ class DatabaseService {
     return rows.map(AppUsage.fromMap).toList();
   }
 
-  /// Returns all usage records for the last [days] days (today inclusive).
-  /// Useful for the AI recommendation engine.
+  /// Returns usage records for the last [days] days (today inclusive).
   Future<List<AppUsage>> getLastNDaysUsage(int days) async {
     final now = DateTime.now();
-    final startDate =
-        now.subtract(Duration(days: days - 1));
-    final startStr = _dateString(startDate);
-    final endStr = _dateString(now);
-    return getUsageRange(startStr, endStr);
+    final start = now.subtract(Duration(days: days - 1));
+    return getUsageRange(dateString(start), dateString(now));
   }
 
-  /// Returns every record in the database, ordered by date.
-  /// Used for CSV export.
+  /// Returns every record in the database ordered by date. Used for CSV export.
   Future<List<AppUsage>> getAllUsageData() async {
     final db = await database;
     final rows = await db.query('daily_usage', orderBy: 'date ASC');
     return rows.map(AppUsage.fromMap).toList();
   }
 
-  /// Aggregates usage records for a date range by package, returning
-  /// a list in the same Map format the existing UI widgets expect:
-  /// {package, minutes, co2, energy}.
+  /// Aggregates records for a date range by package and returns a list in the
+  /// map format the UI widgets expect: {package, minutes, co2, energy}.
   Future<List<Map<String, dynamic>>> getAggregatedUsageForRange(
       String startDate, String endDate) async {
     final records = await getUsageRange(startDate, endDate);
     if (records.isEmpty) return [];
 
-    final Map<String, Map<String, dynamic>> aggregated = {};
+    final Map<String, Map<String, dynamic>> agg = {};
     for (final r in records) {
-      if (!aggregated.containsKey(r.packageName)) {
-        aggregated[r.packageName] = {
-          'package': r.packageName,
-          'minutes': 0.0,
-          'co2': 0.0,
-          'energy': 0.0,
-        };
-      }
-      aggregated[r.packageName]!['minutes'] =
-          (aggregated[r.packageName]!['minutes'] as double) + r.minutes;
-      aggregated[r.packageName]!['co2'] =
-          (aggregated[r.packageName]!['co2'] as double) + r.co2Grams;
-      aggregated[r.packageName]!['energy'] =
-          (aggregated[r.packageName]!['energy'] as double) + r.energyMah;
+      agg.putIfAbsent(r.packageName, () => {
+        'package': r.packageName,
+        'minutes': 0.0,
+        'co2': 0.0,
+        'energy': 0.0,
+      });
+      agg[r.packageName]!['minutes'] =
+          (agg[r.packageName]!['minutes'] as double) + r.minutes;
+      agg[r.packageName]!['co2'] =
+          (agg[r.packageName]!['co2'] as double) + r.co2Grams;
+      agg[r.packageName]!['energy'] =
+          (agg[r.packageName]!['energy'] as double) + r.energyMah;
     }
-    return aggregated.values.toList();
+    return agg.values.toList();
   }
 
-  /// Returns the distinct dates stored in the database.
+  /// Returns the number of distinct dates stored in the database.
   Future<int> countStoredDays() async {
     final db = await database;
-    final result = await db.rawQuery(
-        'SELECT COUNT(DISTINCT date) as cnt FROM daily_usage');
+    final result = await db
+        .rawQuery('SELECT COUNT(DISTINCT date) AS cnt FROM daily_usage');
     return (result.first['cnt'] as int?) ?? 0;
   }
 
   // -------------------------------------------------------------------------
-  // recommendations_log methods
+  // recommendations_log
   // -------------------------------------------------------------------------
 
   Future<void> insertRecommendation({
@@ -334,15 +300,5 @@ class DatabaseService {
     final db = await database;
     await db.delete('daily_usage');
     await db.delete('recommendations_log');
-    debugPrint('DatabaseService: all data deleted');
   }
-
-  // -------------------------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------------------------
-
-  String _dateString(DateTime dt) =>
-      '${dt.year.toString().padLeft(4, '0')}-'
-      '${dt.month.toString().padLeft(2, '0')}-'
-      '${dt.day.toString().padLeft(2, '0')}';
 }

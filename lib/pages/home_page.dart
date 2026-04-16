@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/usage_service.dart';
 import '../services/database_service.dart';
+import '../services/app_constants.dart';
 import '../widgets/carbon_circle.dart';
 import '../widgets/error_display.dart';
 import '../widgets/app_drawer.dart';
@@ -44,12 +45,12 @@ class _HomePageState extends State<HomePage> {
 
       double totalCO2 = 0.0;
       double totalEnergy = 0.0;
-      for (var usage in usageList) {
-        totalCO2 += (usage['co2'] as double);
-        totalEnergy += (usage['energy'] as double);
+      for (final usage in usageList) {
+        totalCO2 += usage['co2'] as double;
+        totalEnergy += usage['energy'] as double;
       }
 
-      final today = _dateString(DateTime.now());
+      final today = dateString(DateTime.now());
       await _db.insertOrUpdateDailyUsage(today, usageList);
 
       setState(() {
@@ -57,17 +58,12 @@ class _HomePageState extends State<HomePage> {
         _totalEnergy = totalEnergy;
       });
     } catch (e) {
-      debugPrint('Error fetching usage: $e');
+      debugPrint('HomePage fetch error: $e');
       setState(() => _hasError = true);
     } finally {
       setState(() => _isLoading = false);
     }
   }
-
-  String _dateString(DateTime dt) =>
-      '${dt.year.toString().padLeft(4, '0')}-'
-      '${dt.month.toString().padLeft(2, '0')}-'
-      '${dt.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
