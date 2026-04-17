@@ -52,7 +52,9 @@ class UsageService {
       }
 
       return usageList;
-    } on PlatformException catch (e) {
+    } catch (e) {
+      // Catches PlatformException (native error), FormatException (malformed JSON
+      // from locale-sensitive String.format on older builds), and cast errors.
       debugPrint('UsageService.getTodayUsage error: $e');
       return [];
     }
@@ -80,7 +82,7 @@ class UsageService {
       }
 
       return usageList;
-    } on PlatformException catch (e) {
+    } catch (e) {
       debugPrint('UsageService.getRangeUsage error: $e');
       return [];
     }

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class MainActivity extends FlutterActivity {
@@ -99,7 +100,7 @@ public class MainActivity extends FlutterActivity {
      */
     private static boolean hasUsageStatsPermission(Context context) {
         AppOpsManager appOps = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
-        int mode = appOps.checkOpNoThrow("android:get_usage_stats",
+        int mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
                 android.os.Process.myUid(),
                 context.getPackageName());
         return mode == AppOpsManager.MODE_ALLOWED;
@@ -109,10 +110,19 @@ public class MainActivity extends FlutterActivity {
      * Opens the Usage Access settings screen so the user can grant permission.
      */
     private void openUsageAccessSettings() {
-        Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
-        intent.setData(Uri.parse("package:" + getPackageName()));
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
+        // Try deep-linking directly to this app's entry. Some OEM ROMs (e.g. Oxygen OS 16)
+        // don't support the package URI here and throw ActivityNotFoundException.
+        try {
+            Intent intent = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            // Fallback: open the generic Usage Access list, which works on all OEM ROMs.
+            Intent fallback = new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS);
+            fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(fallback);
+        }
     }
 
     // ---------------------------
@@ -146,55 +156,51 @@ public class MainActivity extends FlutterActivity {
     /**
      * Core usage retrieval, filters only the social media apps of interest,
      * calculates total usage minutes, CO2 emissions, and energy consumption.
+     *
+     * Uses queryAndAggregateUsageStats instead of queryUsageStats because:
+     *  - No interval type needed — avoids INTERVAL_DAILY empty-result bugs on
+     *    OEM ROMs (OnePlus, Samsung, etc.) where partial-day stats aren't returned.
+     *  - Returns one pre-aggregated UsageStats per package for the whole range,
+     *    so no manual accumulation across multiple interval records is needed.
      */
     private String getUsageFormatted(long startTime, long endTime) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            return "Unsupported Android version for UsageStats.";
+            return "[]";
         }
 
         UsageStatsManager usageStatsManager =
                 (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-        List<UsageStats> stats = usageStatsManager.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY, startTime, endTime);
 
-        if (stats == null || stats.isEmpty()) {
-            return "No usage data available. (Check if permission is granted)";
+        Map<String, UsageStats> aggregated =
+                usageStatsManager.queryAndAggregateUsageStats(startTime, endTime);
+
+        if (aggregated == null || aggregated.isEmpty()) {
+            return "[]";
         }
 
-        // Collect usage data for relevant social media apps only
-        HashMap<String, Long> appForegroundTimeMap = new HashMap<>();
-        for (UsageStats usage : stats) {
-            String packageName = usage.getPackageName();
-            if (SOCIAL_MEDIA_CO2_MAP.containsKey(packageName)) {
-                long totalForegroundTime = usage.getTotalTimeInForeground(); // ms
-                // Accumulate in case of multiple intervals
-                appForegroundTimeMap.put(
-                        packageName,
-                        appForegroundTimeMap.getOrDefault(packageName, 0L) + totalForegroundTime
-                );
-            }
-        }
-
-        // Build JSON-like string with usage in minutes and CO2
         List<String> usageResults = new ArrayList<>();
-        for (Map.Entry<String, Long> entry : appForegroundTimeMap.entrySet()) {
+        for (Map.Entry<String, UsageStats> entry : aggregated.entrySet()) {
             String packageName = entry.getKey();
-            long totalMs = entry.getValue();
-            double totalMinutes = totalMs / 60000.0; // convert ms to minutes
+            if (!SOCIAL_MEDIA_CO2_MAP.containsKey(packageName)) continue;
 
-            double co2PerMinute = SOCIAL_MEDIA_CO2_MAP.get(packageName);
-            double totalCO2 = totalMinutes * co2PerMinute; // grams of CO2
+            long totalMs = entry.getValue().getTotalTimeInForeground();
+            if (totalMs <= 0) continue; // skip apps with no recorded foreground time
 
+            double totalMinutes = totalMs / 60000.0;
+            double co2PerMinute  = SOCIAL_MEDIA_CO2_MAP.get(packageName);
+            double totalCO2      = totalMinutes * co2PerMinute;
             double energyPerMinute = SOCIAL_MEDIA_ENERGY_MAP.get(packageName);
-            double totalEnergy = totalMinutes * energyPerMinute;
+            double totalEnergy   = totalMinutes * energyPerMinute;
 
-            usageResults.add(String.format(
+            // Locale.US ensures '.' as decimal separator regardless of device locale.
+            // Without it, locales that use ',' produce invalid JSON (e.g. "12,34")
+            // which throws a FormatException in Dart's json.decode.
+            usageResults.add(String.format(Locale.US,
                     "{\"package\":\"%s\",\"minutes\":%.2f,\"co2\":%.2f,\"energy\":%.2f}",
                     packageName, totalMinutes, totalCO2, totalEnergy
             ));
         }
 
-        // Return array of JSON objects in a string
         return "[" + String.join(",", usageResults) + "]";
     }
 }
