@@ -1,7 +1,7 @@
 name: social_media_carbon_footprint
 description: "An educational and research targeted app that tracks usage and calculates carbon footprint of social media apps."
 publish_to: 'none'
-version: 1.0.0
+version: 2.0.0+2
 
 environment:
   # Require Dart/Flutter 3.6.0 or later, but below 4.0.0
