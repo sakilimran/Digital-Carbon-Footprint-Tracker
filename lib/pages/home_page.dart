@@ -22,11 +22,37 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   bool _hasError = false;
   bool _isEmpty = false;
+  String _loadingMessage = '';
 
   @override
   void initState() {
     super.initState();
-    _fetchTodayUsage();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _isEmpty = false;
+    });
+
+    // Show a descriptive message only on first launch (backfill not yet done)
+    final isFirstLaunch = !(await _db.hasPerformedBackfill());
+    if (isFirstLaunch) {
+      setState(() => _loadingMessage = 'Setting up your usage history…');
+    }
+
+    // Step 1: One-time historical backfill (30 days from OS)
+    await _db.performHistoricalBackfill(_usageService);
+
+    // Step 2: Fill gaps from days the app was not opened
+    await _db.fillMissingDays(_usageService);
+
+    setState(() => _loadingMessage = '');
+
+    // Step 3: Fetch and store today's data (existing behaviour)
+    await _fetchTodayUsage();
   }
 
   Future<void> _fetchTodayUsage() async {
@@ -73,7 +99,23 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(title: const Text('Digital Carbon Footprint')),
       drawer: const AppDrawer(),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  if (_loadingMessage.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      _loadingMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 14, color: Colors.black54),
+                    ),
+                  ],
+                ],
+              ),
+            )
           : _hasError
               ? ErrorDisplay(
                   message: 'Unable to load usage data. Please check that '

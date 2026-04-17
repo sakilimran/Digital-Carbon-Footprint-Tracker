@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'app_constants.dart';
+import 'usage_service.dart';
 
 // ---------------------------------------------------------------------------
 // Models
@@ -249,6 +250,81 @@ class DatabaseService {
           (agg[r.packageName]!['energy'] as double) + r.energyMah;
     }
     return agg.values.toList();
+  }
+
+  /// Returns true if more than 1 distinct date exists — i.e. the one-time
+  /// historical backfill has already been performed.
+  Future<bool> hasPerformedBackfill() async => (await countStoredDays()) > 1;
+
+  /// Returns the most recent date stored in daily_usage, or null if empty.
+  Future<String?> getLastRecordedDate() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT MAX(date) AS last_date FROM daily_usage',
+    );
+    return result.first['last_date'] as String?;
+  }
+
+  /// Fetches up to 30 days of historical data from the OS one day at a time
+  /// and stores each day in SQLite. Skips silently if already done.
+  Future<void> performHistoricalBackfill(UsageService usageService) async {
+    if (await hasPerformedBackfill()) return;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    for (int i = 30; i >= 1; i--) {
+      final dayStart = today.subtract(Duration(days: i));
+      final dayEnd = dayStart
+          .add(const Duration(days: 1))
+          .subtract(const Duration(milliseconds: 1));
+
+      try {
+        final usageList = await usageService.getRangeUsage(
+          start: dayStart,
+          end: dayEnd,
+        );
+        if (usageList.isNotEmpty) {
+          await insertOrUpdateDailyUsage(dateString(dayStart), usageList);
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Checks for missing days between the last recorded date and yesterday,
+  /// and fills them by querying the OS. Runs on every launch.
+  Future<void> fillMissingDays(UsageService usageService) async {
+    final lastDateStr = await getLastRecordedDate();
+    if (lastDateStr == null) return;
+
+    final lastDate = DateTime.parse(lastDateStr);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    if (!lastDate.isBefore(yesterday)) return;
+
+    var current = lastDate.add(const Duration(days: 1));
+    while (!current.isAfter(yesterday)) {
+      // current is always midnight — parsed from YYYY-MM-DD with whole-day offsets only
+      final dayEnd = current
+          .add(const Duration(days: 1))
+          .subtract(const Duration(milliseconds: 1));
+
+      try {
+        final usageList = await usageService.getRangeUsage(
+          start: current,
+          end: dayEnd,
+        );
+        if (usageList.isNotEmpty) {
+          await insertOrUpdateDailyUsage(dateString(current), usageList);
+        }
+      } catch (_) {
+        // Skip days that fail or have no OS data
+      }
+
+      current = current.add(const Duration(days: 1));
+    }
   }
 
   /// Returns the number of distinct dates stored in the database.
