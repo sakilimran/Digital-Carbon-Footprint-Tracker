@@ -71,6 +71,16 @@ class AboutPage extends StatelessWidget {
               'Post-Doctoral Researcher Md Sanaul Haque',
               style: TextStyle(fontSize: 16, height: 1.5),
             ),
+            SizedBox(height: 24),
+            Text(
+              'Version',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              '2.0.0',
+              style: TextStyle(fontSize: 16, height: 1.5),
+            ),
           ],
         ),
       ),
