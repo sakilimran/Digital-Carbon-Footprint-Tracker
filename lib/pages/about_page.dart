@@ -46,6 +46,31 @@ class AboutPage extends StatelessWidget {
               'and Digital Transformation programme.',
               style: TextStyle(fontSize: 16, height: 1.5),
             ),
+            SizedBox(height: 24),
+            Text(
+              'Developer',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'S M Sakil Imran',
+              style: TextStyle(fontSize: 16, height: 1.5),
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Thesis Supervisors',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Professor Jari Porras',
+              style: TextStyle(fontSize: 16, height: 1.5),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Post-Doctoral Researcher Md Sanaul Haque',
+              style: TextStyle(fontSize: 16, height: 1.5),
+            ),
           ],
         ),
       ),
