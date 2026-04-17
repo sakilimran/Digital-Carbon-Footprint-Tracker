@@ -78,7 +78,7 @@ class AboutPage extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              '2.0.0',
+              '2.1.0',
               style: TextStyle(fontSize: 16, height: 1.5),
             ),
           ],
