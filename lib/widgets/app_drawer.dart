@@ -31,7 +31,7 @@ class AppDrawer extends StatelessWidget {
           _item(context, Icons.home, 'Home', '/'),
           _item(context, Icons.show_chart, 'Usage Statistics', '/stats'),
           _item(context, Icons.assessment, 'Total Impact', '/totalImpact'),
-          _item(context, Icons.lightbulb_outline, 'Smart Tips', '/recommendations'),
+          _item(context, Icons.lightbulb_outline, 'AI Tips', '/recommendations'),
           _item(context, Icons.folder_open, 'Export Data', '/dataManagement'),
           _item(context, Icons.info, 'About', '/about'),
         ],

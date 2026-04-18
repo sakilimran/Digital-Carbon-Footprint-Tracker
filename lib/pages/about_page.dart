@@ -32,7 +32,7 @@ class AboutPage extends StatelessWidget {
             ),
             SizedBox(height: 12),
             Text(
-              'The app includes AI-powered Smart Tips that analyse your usage '
+              'The app includes AI Tips that analyse your usage '
               'patterns and suggest personalised ways to reduce your digital '
               'carbon footprint over time. Usage history can be exported as a '
               'CSV file via the Data Management screen.',

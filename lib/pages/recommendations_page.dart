@@ -57,7 +57,7 @@ class _RecommendationsPageState extends State<RecommendationsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Smart Tips'),
+        title: const Text('AI Tips'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
